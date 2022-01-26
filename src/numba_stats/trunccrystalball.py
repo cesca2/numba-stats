@@ -17,6 +17,12 @@ def _pdf(z, zmin, zmax, beta, m):
 
 @nb.vectorize(_signatures, cache=True)
 def pdf(x, xmin, xmax, beta, m, loc, scale):
+    if x < xmin or x > xmax:
+        return 0
+    if beta < 0:
+        beta *= -1
+        x = xmax - x + xmin
+        loc = xmax - loc + xmin
     z = (x - loc) / scale
     zmin = (xmin - loc) / scale
     zmax = (xmax - loc) / scale
@@ -29,9 +35,19 @@ def cdf(x, xmin, xmax, beta, m, loc, scale):
         return 0.0
     elif x > xmax:
         return 1.0
+    rside=False
+    if beta < 0:
+        rside = True
+        beta *= -1
+        x = xmax - x + xmin
+        loc = xmax - loc + xmin
     z = (x - loc) / scale
     zmin = (xmin - loc) / scale
     zmax = (xmax - loc) / scale
     pmin = _cdf(zmin, beta, m)
     pmax = _cdf(zmax, beta, m)
-    return (_cdf(z, beta, m) - pmin) / (pmax - pmin)
+    ret = (_cdf(z, beta, m) - pmin) / (pmax - pmin)
+    if rside:
+        return 1-ret
+    else:
+        return ret
