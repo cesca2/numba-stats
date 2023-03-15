@@ -27,12 +27,14 @@ def get(name, signature):
 
 # unary functions (double)
 erfinv = get("erfinv", float64(float64))
+gamma = get("gamma", float64(float64))
 
 # binary functions (double)
 gammaincc = get("gammaincc", float64(float64, float64))
 stdtrit = get("stdtrit", float64(float64, float64))
 stdtr = get("stdtr", float64(float64, float64))
 betainc = get("betainc", float64(float64, float64, float64))
+kv = get("kv", float64(float64, float64, float64))
 
 # n-ary functions (double)
 voigt_profile = get("voigt_profile", float64(float64, float64, float64))
