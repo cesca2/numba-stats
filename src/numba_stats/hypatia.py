@@ -194,22 +194,22 @@ def _lb0Other(d, beta, delta, lb):
 @_jit_nc(9)
 def _pdf(x, lb, zeta, beta, sigma, mu, al, nl, ar, nr):
     d = _trans(x, mu, 1.)
-    out = np.zeros(x.shape)
+    out = np.empty_like(x)
 
     cons0 = np.sqrt(zeta)
     alsigma = al*sigma
     arsigma = ar*sigma
     #Define some masks for the different regions of the Hypatia function
-    al_mask = d < -alsigma
-    ar_mask = d > arsigma
-    other_mask = np.where(np.logical_and(d>=-alsigma, d<=arsigma), True, False)
-    #other_mask = np.intersect1d(np.where(d>=-alsigma), np.where(d<=arsigma))
-    d_al = d[al_mask].shape
-    d_ar = d[ar_mask].shape
-    d_other = d[other_mask].shape
-    out_al = np.zeros(d_al.shape)
-    out_ar = np.zeros(d_ar.shape)
-    out_other = np.zeros(d_other.shape)
+    #al_mask = d < -alsigma
+    #ar_mask = d > arsigma
+    #other_mask = np.where(np.logical_and(d>=-alsigma, d<=arsigma), True, False)
+    ##other_mask = np.intersect1d(np.where(d>=-alsigma), np.where(d<=arsigma))
+    #d_al = d[al_mask].shape
+    #d_ar = d[ar_mask].shape
+    #d_other = d[other_mask].shape
+    #out_al = np.zeros(d_al.shape)
+    #out_ar = np.zeros(d_ar.shape)
+    #out_other = np.zeros(d_other.shape)
 
     if zeta > 0.:
         phi = _besselK(zeta, lb+1)/_besselK(zeta, lb)
@@ -217,42 +217,53 @@ def _pdf(x, lb, zeta, beta, sigma, mu, al, nl, ar, nr):
         alpha = cons0/cons1
         delta = cons0*cons1
 
-        for i in _prange(len(d_al)):
-            out_al[i] = _zeta0al(d_al[i], alsigma, lb, alpha, beta, delta, nl)
+        for i in _prange(len(x)):
+            d_i = d[i]
+            if d_i < -alsigma:
+                out[i] = _zeta0al(d_i, alsigma, lb, alpha, beta, delta, nl)
+            elif d_i > arsigma:
+                out[i] = _zeta0ar(d_i, arsigma, lb, alpha, beta, delta, nr)
+            elif d_i >=-alsigma and d_i <= arsigma:
+                out[i] = _LogEval(d_i, lb, alpha, beta, delta)
 
-        for i in _prange(len(d_ar)):
-            out_ar[i] = _zeta0ar(d_ar[i], arsigma, lb, alpha, beta, delta, nr)
-
-        for i in _prange(len(d_other)):
-            out_other[i] = _LogEval(d_other[i], lb, alpha, beta, delta)
-        #out[al_mask] = _zeta0al(d[al_mask], alsigma, lb, alpha, beta, delta, nl)
-        #out[ar_mask] = _zeta0ar(d[ar_mask], arsigma, lb, alpha, beta, delta, nr)
-        #out[other_mask] = _LogEval(d[other_mask], lb, alpha, beta, delta)
+#        for i in _prange(len(d_al)):
+#            out_al[i] = _zeta0al(d_al[i], alsigma, lb, alpha, beta, delta, nl)
+#
+#        for i in _prange(len(d_ar)):
+#            out_ar[i] = _zeta0ar(d_ar[i], arsigma, lb, alpha, beta, delta, nr)
+#
+#        for i in _prange(len(d_other)):
+#            out_other[i] = _LogEval(d_other[i], lb, alpha, beta, delta)
 
     elif zeta < 0.:
         print('Zeta cannot be < 0.')
     elif lb < 0.:
         delta = sigma
 
-        for i in _prange(len(d_al)):
-            out_al[i] = _lb0al(d_al[i], beta, alsigma, al, lb, delta, nl)
+        for i in _prange(len(x)):
+            d_i = d[i]
+            if d_i < -alsigma:
+                out[i] = _lb0al(d_i, beta, alsigma, al, lb, delta, nl) 
+            elif d_i > arsigma:
+                out[i] = _lb0ar(d_i, beta, arsigma, ar, lb, delta, nr)
+            elif d_i >=-alsigma and d_i <= arsigma:
+                out[i] = _lb0Other(d_i, beta, delta, lb)
 
-        for i in _prange(len(d_ar)):
-            out_ar[i] = _lb0ar(d_ar[i], beta, arsigma, ar, lb, delta, nr)
-
-        for i in _prange(len(d_other)):
-            out_other[i] = _lb0Other(d_other[i], beta, delta, lb)
-
-        #out[al_mask] = _lb0al(d[al_mask], beta, alsigma, al, lb, delta, nl)
-        #out[ar_mask] = _lb0ar(d[ar_mask], beta, arsigma, ar, lb, delta, nr)
-        #out[other_mask] = _lb0Other(d[other_mask], beta, delta, lb)
+#        for i in _prange(len(d_al)):
+#            out_al[i] = _lb0al(d_al[i], beta, alsigma, al, lb, delta, nl)
+#
+#        for i in _prange(len(d_ar)):
+#            out_ar[i] = _lb0ar(d_ar[i], beta, arsigma, ar, lb, delta, nr)
+#
+#        for i in _prange(len(d_other)):
+#            out_other[i] = _lb0Other(d_other[i], beta, delta, lb)
 
     else:
-        print(f'Zeta = 0 only supported for lb < 0. lb = {lb}')
+        print(f'Zeta = 0 only supported for lb < 0.')
 
-    out[al_mask] = out_al
-    out[ar_mask] = out_ar
-    out[other_mask] - out_other
+#    out[al_mask] = out_al
+#    out[ar_mask] = out_ar
+#    out[other_mask] - out_other
 
     return out
 
