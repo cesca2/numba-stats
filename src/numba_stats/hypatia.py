@@ -60,61 +60,6 @@ nr : float
 def _jit_nc(arg, cache=False):
     return _jit(arg, cache)
 
-#Used for Bessel fcn when x is small
-#@_jit(1)
-#def _low_x_BK(x, nu):
-#
-#    return gamma(nu)*np.power(2, nu-1)*np.power(x, -nu)
-#
-##Used for Bessel fcn when x is small
-#@_jit(1)
-#def _low_x_LnBK(x, nu):
-#
-#    return np.log(gamma(nu)) + np.log(2)*(nu-1) - np.log(x)*nu
-
-#Bessel functions
-#@_jit(1)
-#def _besselK(x, ni):
-#    nu = np.abs(ni)
-#    #Looks a bit different to get the if conditions to work with numpy
-#    #lowest_mask = x<1.e-6
-#    #middle_mask = np.intersect1d(np.where(x>=1.e-6), np.where(x<1.e-4))
-#    #upper_mask = np.intersect1d(np.where(x>=1.e-4), np.where(x<0.1))
-#    #other_mask = x>=1.e-4
-#    lowest_mask = np.where(x<1.e-6, True, False)
-#    middle_mask = np.where(np.logical_and(x>=1.e-6, x<1e-4), True, False)
-#    upper_mask = np.where(np.logical_and(x>=1.e-4, x<0.1), True, False)
-#    other_mask = np.where(x>=1.e-4, True, False)
-#    to_return = np.zeros(x.shape)
-#
-#    to_return[lowest_mask] = _low_x_BK(x[lowest_mask], nu) if nu>0. else kv(x[lowest_mask], nu)
-#    to_return[middle_mask] = _low_x_BK(x[middle_mask], nu) if (nu>0. and nu<55.) else kv(x[middle_mask], nu)
-#    to_return[upper_mask] = _low_x_BK(x[upper_mask], nu) if nu>=55. else kv(x[upper_mask], nu)
-#    to_return[other_mask] = kv(x[other_mask], nu)
-#
-#    return to_return
-
-#Log Bessel fcn
-#@_jit(1)
-#def _LnBesselK(x, ni):
-#    nu = np.abs(ni)
-#    #lowest_mask = x<1.e-6
-#    #middle_mask = np.intersect1d(np.where(x>=1.e-6), np.where(x<1.e-4))
-#    #upper_mask = np.intersect1d(np.where(x>=1.e-4), np.where(x<0.1))
-#    #other_mask = x>=1.e-4
-#    lowest_mask = np.where(x<1.e-6, True, False)
-#    middle_mask = np.where(np.logical_and(x>=1.e-6, x<1e-4), True, False)
-#    upper_mask = np.where(np.logical_and(x>=1.e-4, x<0.1), True, False)
-#    other_mask = np.where(x>=1.e-4, True, False)
-#    to_return = np.zeros(x.shape)
-#
-#    to_return[lowest_mask] = _low_x_LnBK(x[lowest_mask, nu]) if nu>0. else np.log(kv(x[lowest_mask, nu]))
-#    to_return[middle_mask] = _low_x_LnBK(x[middle_mask, nu]) if (nu>0. and nu<55.) else np.log(kv(x[middle_mask, nu]))
-#    to_return[upper_mask] = _low_x_LnBK(x[upper_mask, nu]) if nu>=55. else np.log(kv(x[upper_mask, nu]))
-#    to_return[other_mask] = np.log(kv(x[other_mask, nu]))
-#
-#    return to_return
-
 @_jit_nc(-2)
 def _besselK(x, ni):
     return kv(ni, x)
@@ -199,17 +144,6 @@ def _pdf(x, lb, zeta, beta, sigma, mu, al, nl, ar, nr):
     cons0 = np.sqrt(zeta)
     alsigma = al*sigma
     arsigma = ar*sigma
-    #Define some masks for the different regions of the Hypatia function
-    #al_mask = d < -alsigma
-    #ar_mask = d > arsigma
-    #other_mask = np.where(np.logical_and(d>=-alsigma, d<=arsigma), True, False)
-    ##other_mask = np.intersect1d(np.where(d>=-alsigma), np.where(d<=arsigma))
-    #d_al = d[al_mask].shape
-    #d_ar = d[ar_mask].shape
-    #d_other = d[other_mask].shape
-    #out_al = np.zeros(d_al.shape)
-    #out_ar = np.zeros(d_ar.shape)
-    #out_other = np.zeros(d_other.shape)
 
     if zeta > 0.:
         phi = _besselK(zeta, lb+1)/_besselK(zeta, lb)
@@ -226,15 +160,6 @@ def _pdf(x, lb, zeta, beta, sigma, mu, al, nl, ar, nr):
             elif d_i >=-alsigma and d_i <= arsigma:
                 out[i] = _LogEval(d_i, lb, alpha, beta, delta)
 
-#        for i in _prange(len(d_al)):
-#            out_al[i] = _zeta0al(d_al[i], alsigma, lb, alpha, beta, delta, nl)
-#
-#        for i in _prange(len(d_ar)):
-#            out_ar[i] = _zeta0ar(d_ar[i], arsigma, lb, alpha, beta, delta, nr)
-#
-#        for i in _prange(len(d_other)):
-#            out_other[i] = _LogEval(d_other[i], lb, alpha, beta, delta)
-
     elif zeta < 0.:
         print('Zeta cannot be < 0.')
     elif lb < 0.:
@@ -249,21 +174,8 @@ def _pdf(x, lb, zeta, beta, sigma, mu, al, nl, ar, nr):
             elif d_i >=-alsigma and d_i <= arsigma:
                 out[i] = _lb0Other(d_i, beta, delta, lb)
 
-#        for i in _prange(len(d_al)):
-#            out_al[i] = _lb0al(d_al[i], beta, alsigma, al, lb, delta, nl)
-#
-#        for i in _prange(len(d_ar)):
-#            out_ar[i] = _lb0ar(d_ar[i], beta, arsigma, ar, lb, delta, nr)
-#
-#        for i in _prange(len(d_other)):
-#            out_other[i] = _lb0Other(d_other[i], beta, delta, lb)
-
     else:
         print(f'Zeta = 0 only supported for lb < 0.')
-
-#    out[al_mask] = out_al
-#    out[ar_mask] = out_ar
-#    out[other_mask] - out_other
 
     return out
 
