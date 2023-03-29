@@ -25,6 +25,14 @@ def _trans_x(x, m0):
 @_jit(3)
 def _pdf(x, m0, p, c):
     z = _trans_x(x, m0)
-    return x * np.power(z, p) * np.exp(c * z)
+    out = np.empty_like(z)
+    for i in _prange(len(z)):
+        z_i = z[i]
+        if z_i < 0.0:
+            out[i] = 0.0
+        else:
+            out[i] = x[i] * np.power(z_i, p) * np.exp(c * z_i)
+
+    return out
 
 _generate_wrappers(globals())
