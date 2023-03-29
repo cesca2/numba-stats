@@ -61,12 +61,28 @@ def _jit_nc(arg, cache=False):
     return _jit(arg, cache)
 
 @_jit_nc(-2)
+def _low_x_BK(x, nu):
+    return gamma(nu)*np.power(2., nu-1)*np.power(x, -nu)
+
+@_jit_nc(-2)
+def _low_x_LnBK(x, nu):
+    return np.log(gamma(nu)) + np.log(2)*(nu-1) - np.log(x)*nu
+
+@_jit_nc(-2)
 def _besselK(x, ni):
-    return kv(ni, x)
+    nu = np.abs(ni)
+    if ((x<1e-6 and nu>0) or (x<1e-4 and nu>0 and nu<55) or (x<0.1 and nu>=55)):
+        return _low_x_BK(x, nu)
+
+    return kv(nu, x)
 
 @_jit_nc(-2)
 def _LnBesselK(x, ni):
-    return np.log(_besselK(x, ni))
+    nu = np.abs(ni)
+    if ((x<1e-6 and nu>0) or (x<1e-4 and nu>0 and nu<55) or (x<0.1 and nu>=55)):
+        return _low_x_LnBK(x, nu)
+
+    return np.log(kv(nu, x))
 
 @_jit_nc(-5)
 def _LogEval(d, l, alpha, beta, delta):
