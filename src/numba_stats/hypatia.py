@@ -15,7 +15,8 @@ See here: https://root.cern.ch/doc/master/classRooHypatia2.html
 from ._util import _jit, _generate_wrappers, _prange, _trans
 from numba import njit
 import numba as nb
-from ._special import gamma, kv
+from ._special import kv
+from math import gamma
 import numpy as np
 from math import erf as _erf
 
