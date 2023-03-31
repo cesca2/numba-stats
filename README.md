@@ -12,38 +12,44 @@ We provide numba-accelerated implementations of statistical functions for common
 * Student's t
 * Voigtian
 * Crystal Ball
+* Generalised double-sided Crystal Ball
 * Tsallis-Hagedorn, a model for the minimum bias pT distribution
 * Q-Gaussian
 * Bernstein density (not normalised to unity, use this in extended likelihood fits)
 
 with more to come. The speed gains are huge, up to a factor of 100 compared to `scipy`. Benchmarks are included in the repository and are run by `pytest`.
 
-## Documentation (or lack of)
+## Usage
 
-Because of limited manpower, this project is poorly documented. The documentation is basically the source code. `pydoc numba_stats` does not really work at the moment, because Numba does not show the docstring of the wrapped function but the docstring of the wrapping function. The plan is to fix this (either in Numba or locally). The calling conventions for those functions which have a `scipy.stats` equivalent, are identical to those in SciPy. These conventions are sometimes a bit unusual, for example, in case of the exponential, the log-normal or the uniform distribution. See the SciPy docs for details.
+Each distribution is implemented in a submodule. Import the submodule that you need.
+```py
+from numba_stats import norm
+import numpy as np
+
+x = np.linspace(-10, 10)
+mu = 2
+sigma = 3
+
+dp = norm.pdf(x, mu, sigma)
+p = norm.cdf(x, mu, sigma)
+```
+The functions are vectorised on the variate `x`, but not on the shape parameters of the distribution. Ideally, the following functions are implemented for each distribution:
+* `logpdf`
+* `pdf`
+* `cdf`
+* `ppf`
+
+`cdf` and `ppf` are missing for some distributions (e.g. `voigt`), if there is currently no fast implementation available. `logpdf` is only implemented if it is more efficient and accurate compared to computing `log(dist.pdf(...))`.
+
+## Documentation
+
+To get documentation, please use `help()` in the Python interpreter.
+
+Functions with equivalents in `scipy.stats` follow the Scipy calling conventions exactly. These conventions are sometimes a bit unusual, for example, in case of the exponential, the log-normal or the uniform distribution. See the SciPy docs for details.
 
 ## Contributions
 
 **You can help with adding more distributions, patches are very welcome.** Implementing a probability distribution is easy. You need to write it in simple Python that `numba` can understand. Special functions from `scipy.special` can be used after some wrapping, see submodule `numba_stats._special.py` how it is done.
-
-## Plans for version 1.0
-
-Version v1.0 will introduce breaking changes to the API. Users are recommended to update their code.
-```
-# before v0.8
-from numba_stats import norm_pdf
-from numba_stats.stats import norm_cdf
-
-dp = norm_pdf(1, 2, 3)
-p = norm_cdf(1, 2, 3)
-
-# recommended since v0.8
-from numba_stats import norm
-
-dp = norm.pdf(1, 2, 3)
-p = norm.cdf(1, 2, 3)
-```
-This is nicer code, but more importantly, this is necessary to battle the increasing startup times of `numba-stats`. Now you only pay the compilation cost for the distribution that you actually import. The `stats` submodule will be removed. To keep old code running, please pin your numba_stats to version `<1`.
 
 ## numba-stats and numba-scipy
 

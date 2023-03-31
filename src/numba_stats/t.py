@@ -1,43 +1,65 @@
-import numba as nb
+"""
+Student's t distribution.
+
+See Also
+--------
+scipy.stats.t: Scipy equivalent.
+"""
 import numpy as np
-from ._special import stdtr as _cdf, stdtrit as _ppf
+from ._special import stdtr as _stdtr, stdtrit as _stdtrit
+from ._util import _jit, _trans, _generate_wrappers, _prange
 from math import lgamma as _lgamma
 
-_signatures = [
-    nb.float32(nb.float32, nb.float32, nb.float32, nb.float32),
-    nb.float64(nb.float64, nb.float64, nb.float64, nb.float64),
-]
+_doc_par = """
+x: ArrayLike
+    Random variate.
+df : float
+    Degrees of freedom.
+loc : float
+    Location of the mode.
+scale : float
+    Width parameter.
+"""
 
 
-@nb.vectorize(_signatures, cache=True)
-def pdf(x, df, mu, sigma):
-    """
-    Return probability density of student's distribution.
-    """
-    z = (x - mu) / sigma
-    k = 0.5 * (df + 1)
-    p = np.exp(_lgamma(k) - _lgamma(0.5 * df))
-    p /= np.sqrt(df * np.pi) * (1 + (z ** 2) / df) ** k
-    return p / sigma
+@_jit(3, cache=False)
+def _logpdf(x, df, loc, scale):
+    T = type(df)
+    z = _trans(x, loc, scale)
+    k = T(0.5) * (df + T(1))
+    c = _lgamma(k) - _lgamma(T(0.5) * df)
+    c -= T(0.5) * np.log(df * T(np.pi))
+    c -= np.log(scale)
+    for i in _prange(len(z)):
+        z[i] = -k * np.log(T(1) + (z[i] * z[i]) / df) + c
+    return z
 
 
-@nb.vectorize(_signatures)
-def cdf(x, df, mu, sigma):
-    """
-    Evaluate cumulative distribution function of student's distribution.
-    """
-    z = (x - mu) / sigma
-    return _cdf(df, z)
+@_jit(3, cache=False)
+def _pdf(x, df, loc, scale):
+    return np.exp(_logpdf(x, df, loc, scale))
 
 
-@nb.vectorize(_signatures)
-def ppf(p, df, mu, sigma):
-    """
-    Return quantile of student's distribution for given probability.
-    """
-    if p == 0:
-        return -np.inf
-    elif p == 1:
-        return np.inf
-    z = _ppf(df, p)
-    return sigma * z + mu
+@_jit(3, cache=False)
+def _cdf(x, df, loc, scale):
+    z = _trans(x, loc, scale)
+    for i in _prange(len(z)):
+        z[i] = _stdtr(df, z[i])
+    return z
+
+
+@_jit(3, cache=False)
+def _ppf(p, df, loc, scale):
+    T = type(df)
+    r = np.empty_like(p)
+    for i in _prange(len(p)):
+        if p[i] == 0:
+            r[i] = -T(np.inf)
+        elif p[i] == 1:
+            r[i] = T(np.inf)
+        else:
+            r[i] = _stdtrit(df, p[i])
+    return scale * r + loc
+
+
+_generate_wrappers(globals())

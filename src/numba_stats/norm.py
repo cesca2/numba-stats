@@ -1,64 +1,71 @@
-import numba as nb
+"""
+Normal distribution.
+
+See Also
+--------
+scipy.stats.norm: Scipy equivalent.
+"""
 import numpy as np
 from ._special import erfinv as _erfinv
+from ._util import _jit, _trans, _generate_wrappers, _prange
 from math import erf as _erf
 
-
-@nb.njit(cache=True)
-def _logpdf(z):
-    return -0.5 * (z ** 2 + np.log(2 * np.pi))
-
-
-@nb.njit(cache=True)
-def _cdf(z):
-    c = np.sqrt(0.5)
-    return 0.5 * (1.0 + _erf(z * c))
+_doc_par = """
+x : ArrayLike
+    Random variate.
+loc : float
+    Location of the mode of the distribution.
+scale : float
+    Standard deviation.
+"""
 
 
-@nb.njit
-def _ppf(p):
-    return np.sqrt(2) * _erfinv(2 * p - 1)
+@_jit(-1)
+def _logpdf1(z):
+    T = type(z)
+    return -T(0.5) * (z * z + T(np.log(2 * np.pi)))
 
 
-_signatures = [
-    nb.float32(nb.float32, nb.float32, nb.float32),
-    nb.float64(nb.float64, nb.float64, nb.float64),
-]
+@_jit(-1)
+def _cdf1(z):
+    T = type(z)
+    c = T(np.sqrt(0.5))
+    return T(0.5) * (T(1.0) + _erf(z * c))
 
 
-@nb.vectorize(_signatures, cache=True)
-def logpdf(x, mu, sigma):
-    """
-    Return log of probability density of normal distribution.
-    """
-    z = (x - mu) / sigma
-    return _logpdf(z) - np.log(sigma)
+@_jit(-1, cache=False)  # cannot cache because of _erfinv
+def _ppf1(p):
+    T = type(p)
+    return T(np.sqrt(2)) * _erfinv(T(2) * p - T(1))
 
 
-@nb.vectorize(_signatures, cache=True)
-def pdf(x, mu, sigma):
-    """
-    Return probability density of normal distribution.
-    """
-    # cannot call logpdf directly here, because nb.vectorize does not generate
-    # inlinable code
-    z = (x - mu) / sigma
-    return np.exp(_logpdf(z)) / sigma
+@_jit(2)
+def _logpdf(x, loc, scale):
+    r = _trans(x, loc, scale)
+    for i in _prange(len(r)):
+        r[i] = _logpdf1(r[i]) - np.log(scale)
+    return r
 
 
-@nb.vectorize(_signatures, cache=True)
-def cdf(x, mu, sigma):
-    """
-    Evaluate cumulative distribution function of normal distribution.
-    """
-    z = (x - mu) / sigma
-    return _cdf(z)
+@_jit(2)
+def _pdf(x, loc, scale):
+    return np.exp(_logpdf(x, loc, scale))
 
 
-@nb.vectorize(_signatures)
-def ppf(p, mu, sigma):
-    """
-    Return quantile of normal distribution for given probability.
-    """
-    z = _ppf(p)
-    return sigma * z + mu
+@_jit(2)
+def _cdf(x, loc, scale):
+    r = _trans(x, loc, scale)
+    for i in _prange(len(r)):
+        r[i] = _cdf1(r[i])
+    return r
+
+
+@_jit(2, cache=False)
+def _ppf(p, loc, scale):
+    r = np.empty_like(p)
+    for i in _prange(len(r)):
+        r[i] = scale * _ppf1(p[i]) + loc
+    return r
+
+
+_generate_wrappers(globals())

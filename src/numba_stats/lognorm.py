@@ -1,50 +1,62 @@
-import numba as nb
+"""
+Lognormal distribution.
+
+See Also
+--------
+scipy.stats.lognorm: Scipy equivalent.
+"""
 import numpy as np
-from .norm import _cdf, _ppf
+from . import norm as _norm
+from ._util import _jit, _trans, _generate_wrappers, _prange
+
+_doc_par = """
+x : ArrayLike
+    Random variate.
+s : float
+    Standard deviation of the corresponding normal distribution of exp(x).
+loc : float
+    Shift of the distribution.
+scale : float
+    Equal to exp(mu) of the corresponding normal distribution of exp(x).
+"""
 
 
-_signatures = [
-    nb.float32(nb.float32, nb.float32, nb.float32, nb.float32),
-    nb.float64(nb.float64, nb.float64, nb.float64, nb.float64),
-]
+@_jit(3)
+def _logpdf(x, s, loc, scale):
+    r = _trans(x, loc, scale)
+    for i in _prange(len(r)):
+        if r[i] > 0:
+            r[i] = -0.5 * np.log(r[i]) ** 2 / s**2 - np.log(
+                s * r[i] * np.sqrt(2 * np.pi) * scale
+            )
+        else:
+            r[i] = -np.inf
+    return r
 
 
-@nb.vectorize(_signatures, cache=True)
-def pdf(x, s, loc, scale):
-    """
-    Return probability density of lognormal distribution.
-    """
-    return np.exp(logpdf(x, s, loc, scale))
+@_jit(3)
+def _pdf(x, s, loc, scale):
+    return np.exp(_logpdf(x, s, loc, scale))
 
 
-@nb.vectorize(_signatures, cache=True)
-def logpdf(x, s, loc, scale):
-    """
-    Return log of probability density of lognormal distribution.
-    """
-    z = (x - loc) / scale
-    if z <= 0:
-        return -np.inf
-    c = np.sqrt(2 * np.pi)
-    log_pdf = -0.5 * np.log(z) ** 2 / s ** 2 - np.log(s * z * c)
-    return log_pdf - np.log(scale)
+@_jit(3)
+def _cdf(x, s, loc, scale):
+    r = _trans(x, loc, scale)
+    for i in _prange(len(r)):
+        if r[i] <= 0:
+            r[i] = 0.0
+        else:
+            z = np.log(r[i]) / s
+            r[i] = _norm._cdf1(z)
+    return r
 
 
-@nb.vectorize(_signatures, cache=True)
-def cdf(x, s, loc, scale):
-    """
-    Evaluate cumulative distribution function of lognormal distribution.
-    """
-    z = (x - loc) / scale
-    if z <= 0:
-        return 0.0
-    return _cdf(np.log(z) / s)
+@_jit(3, cache=False)  # no cache because of norm._ppf
+def _ppf(p, s, loc, scale):
+    r = np.empty_like(p)
+    for i in _prange(len(p)):
+        r[i] = np.exp(s * _norm._ppf1(p[i]))
+    return scale * r + loc
 
 
-@nb.vectorize(_signatures)
-def ppf(p, s, loc, scale):
-    """
-    Return quantile of lognormal distribution for given probability.
-    """
-    z = np.exp(s * _ppf(p))
-    return scale * z + loc
+_generate_wrappers(globals())

@@ -1,27 +1,56 @@
-import numba as nb
+"""
+Uniform distribution.
 
-_signatures = [
-    nb.float32(nb.float32, nb.float32, nb.float32),
-    nb.float64(nb.float64, nb.float64, nb.float64),
-]
+See Also
+--------
+scipy.stats.uniform: Equivalent in Scipy.
+"""
+from ._util import _jit, _generate_wrappers, _prange
+import numpy as np
 
-
-@nb.vectorize(_signatures, cache=True)
-def pdf(x, a, w):
-    if a <= x <= a + w:
-        return 1 / w
-    return 0
-
-
-@nb.vectorize(_signatures, cache=True)
-def cdf(x, a, w):
-    if a <= x:
-        if x <= a + w:
-            return (x - a) / w
-        return 1
-    return 0
+_doc_par = """
+x : ArrayLike
+    Random variate.
+a : float
+    Lower edge of the distribution.
+w : float
+    Width of the distribution.
+"""
 
 
-@nb.vectorize(_signatures, cache=True)
-def ppf(p, a, w):
+@_jit(2)
+def _logpdf(x, a, w):
+    r = np.empty_like(x)
+    for i in _prange(len(x)):
+        if a <= x[i] <= a + w:
+            r[i] = -np.log(w)
+        else:
+            r[i] = -np.inf
+    return r
+
+
+@_jit(2)
+def _pdf(x, a, w):
+    return np.exp(_logpdf(x, a, w))
+
+
+@_jit(2)
+def _cdf(x, a, w):
+    r = np.empty_like(x)
+    for i in _prange(len(x)):
+        if a <= x[i]:
+            if x[i] <= a + w:
+                r[i] = (x[i] - a) / w
+            else:
+                r[i] = 1
+        else:
+            r[i] = 0
+    return r
+
+
+@_jit(2)
+def _ppf(p, a, w):
     return w * p + a
+
+
+_generate_wrappers(globals())

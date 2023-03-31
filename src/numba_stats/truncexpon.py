@@ -1,64 +1,82 @@
-import numba as nb
+"""
+Truncated exponential distribution.
+
+See Also
+--------
+scipy.stats.truncexpon: Scipy equivalent.
+"""
 import numpy as np
-from math import expm1 as _expm1, log1p as _log1p
+from ._util import _jit, _trans, _generate_wrappers, _prange
+from . import expon as _expon
 
-_signatures = [
-    nb.float32(nb.float32, nb.float32, nb.float32, nb.float32, nb.float32),
-    nb.float64(nb.float64, nb.float64, nb.float64, nb.float64, nb.float64),
-]
-
-
-@nb.njit
-def _cdf(z):
-    return -_expm1(-z)
-
-
-@nb.vectorize(_signatures, cache=True)
-def pdf(x, xmin, xmax, mu, sigma):
-    """
-    Return probability density of exponential distribution.
-    """
-    if x < xmin:
-        return 0.0
-    elif x > xmax:
-        return 0.0
-    sigma_inv = 1 / sigma
-    z = (x - mu) * sigma_inv
-    zmin = (xmin - mu) * sigma_inv
-    zmax = (xmax - mu) * sigma_inv
-    return np.exp(-z) * sigma_inv / (_cdf(zmax) - _cdf(zmin))
+_doc_par = """
+x: ArrayLike
+    Random variate.
+xmin : float
+    Lower edge of the distribution.
+xmin : float
+    Upper edge of the distribution.
+loc : float
+    Location of the mode.
+scale : float
+    Width parameter.
+"""
 
 
-@nb.vectorize(_signatures, cache=True)
-def cdf(x, xmin, xmax, mu, sigma):
-    """
-    Evaluate cumulative distribution function of exponential distribution.
-    """
-    if x < xmin:
-        return 0.0
-    elif x > xmax:
-        return 1.0
-    sigma_inv = 1 / sigma
-    z = (x - mu) * sigma_inv
-    p = _cdf(z)
-    zmin = (xmin - mu) * sigma_inv
-    zmax = (xmax - mu) * sigma_inv
-    pmin = _cdf(zmin)
-    pmax = _cdf(zmax)
-    return (p - pmin) / (pmax - pmin)
+@_jit(4)
+def _logpdf(x, xmin, xmax, loc, scale):
+    T = type(xmin)
+    z = _trans(x, loc, scale)
+    scale2 = T(1) / scale
+    zmin = (xmin - loc) * scale2
+    zmax = (xmax - loc) * scale2
+    c = np.log(scale * (_expon._cdf1(zmax) - _expon._cdf1(zmin)))
+    for i in _prange(len(z)):
+        if zmin <= z[i] < zmax:
+            z[i] = -z[i] - c
+        else:
+            z[i] = -np.inf
+    return z
 
 
-@nb.vectorize(_signatures, cache=True)
-def ppf(p, xmin, xmax, mu, sigma):
-    """
-    Return quantile of exponential distribution for given probability.
-    """
-    sigma_inv = 1 / sigma
-    zmin = (xmin - mu) * sigma_inv
-    zmax = (xmax - mu) * sigma_inv
-    pmin = _cdf(zmin)
-    pmax = _cdf(zmax)
-    pstar = p * (pmax - pmin) + pmin
-    z = -_log1p(-pstar)
-    x = z * sigma + mu
-    return x
+@_jit(4)
+def _pdf(x, xmin, xmax, loc, scale):
+    return np.exp(_logpdf(x, xmin, xmax, loc, scale))
+
+
+@_jit(4)
+def _cdf(x, xmin, xmax, loc, scale):
+    T = type(xmin)
+    z = _trans(x, loc, scale)
+    scale2 = T(1) / scale
+    zmin = (xmin - loc) * scale2
+    zmax = (xmax - loc) * scale2
+    pmin = _expon._cdf1(zmin)
+    pmax = _expon._cdf1(zmax)
+    scale3 = T(1) / (pmax - pmin)
+    for i in _prange(len(z)):
+        if zmin <= z[i]:
+            if z[i] < zmax:
+                z[i] = (_expon._cdf1(z[i]) - pmin) * scale3
+            else:
+                z[i] = 1
+        else:
+            z[i] = 0
+    return z
+
+
+@_jit(4)
+def _ppf(p, xmin, xmax, loc, scale):
+    T = type(xmin)
+    scale2 = T(1) / scale
+    zmin = (xmin - loc) * scale2
+    zmax = (xmax - loc) * scale2
+    pmin = _expon._cdf1(zmin)
+    pmax = _expon._cdf1(zmax)
+    z = p * (pmax - pmin) + pmin
+    for i in _prange(len(z)):
+        z[i] = _expon._ppf1(z[i])
+    return z * scale + loc
+
+
+_generate_wrappers(globals())
