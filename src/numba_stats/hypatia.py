@@ -57,18 +57,18 @@ nr : float
     Must be larger than 1.
 """
 
-def _jit_nc(arg, cache=False):
-    return _jit(arg, cache)
+#def njit(arg, cache=False):
+    #return _jit(arg, cache)
 
-@_jit_nc(-2)
+@njit
 def _low_x_BK(x, nu):
     return gamma(nu)*np.power(2., nu-1)*np.power(x, -nu)
 
-@_jit_nc(-2)
+@njit
 def _low_x_LnBK(x, nu):
     return np.log(gamma(nu)) + np.log(2)*(nu-1) - np.log(x)*nu
 
-@_jit_nc(-2)
+@njit
 def _besselK(x, ni):
     nu = np.abs(ni)
     if ((x<1e-6 and nu>0) or (x<1e-4 and nu>0 and nu<55) or (x<0.1 and nu>=55)):
@@ -76,7 +76,7 @@ def _besselK(x, ni):
 
     return kv(nu, x)
 
-@_jit_nc(-2)
+@njit
 def _LnBesselK(x, ni):
     nu = np.abs(ni)
     if ((x<1e-6 and nu>0) or (x<1e-4 and nu>0 and nu<55) or (x<0.1 and nu>=55)):
@@ -84,7 +84,7 @@ def _LnBesselK(x, ni):
 
     return np.log(kv(nu, x))
 
-@_jit_nc(-5)
+@njit
 def _LogEval(d, l, alpha, beta, delta):
     gamma = alpha
     dg = delta*gamma
@@ -94,7 +94,7 @@ def _LogEval(d, l, alpha, beta, delta):
 
     return np.exp(logno + beta*d + (0.5-l)*(np.log(alpha)-0.5*np.log(thing)) + _LnBesselK(alpha*np.sqrt(thing), l-0.5))
 
-@_jit_nc(-5)
+@njit
 def _diff_eval(d, l, alpha, beta, delta):
     gamma = alpha
     dg = delta*gamma
@@ -107,7 +107,7 @@ def _diff_eval(d, l, alpha, beta, delta):
     return no*np.power(alpha, ns1)*np.power(thing, 0.5*l-1.25) * (-d*alphasq*(_besselK(alphasq, l-1.5) + _besselK(alphasq, l+0.5)) + (2*(beta*thing+d*l)-d) * _besselK(alphasq, ns1)) * np.exp(beta*d) * 0.5
 
 #Not in the RooFit version, define some functions to handle the if/else statements for numpy
-@_jit_nc(-7)
+@njit
 def _zeta0al(d, alsigma, lb, alpha, beta, delta, nl):
     k1 = _LogEval(-alsigma, lb, alpha, beta, delta)
     k2 = _diff_eval(-alsigma, lb, alpha, beta, delta)
@@ -116,7 +116,7 @@ def _zeta0al(d, alsigma, lb, alpha, beta, delta, nl):
 
     return A * np.power(B-d, -nl)
 
-@_jit_nc(-7)
+@njit
 def _zeta0ar(d, arsigma, lb, alpha, beta, delta, nr):
     k1 = _LogEval(arsigma, lb, alpha, beta, delta)
     k2 = _diff_eval(arsigma, lb, alpha, beta, delta)
@@ -125,7 +125,7 @@ def _zeta0ar(d, arsigma, lb, alpha, beta, delta, nr):
 
     return A * np.power(B+d, -nr)
 
-@_jit_nc(-7)
+@njit
 def _lb0al(d, beta, alsigma, al, lb, delta, nl):
     cons1 = np.exp(-beta*alsigma)
     phi = 1. + al*al
@@ -136,7 +136,7 @@ def _lb0al(d, beta, alsigma, al, lb, delta, nl):
 
     return A*np.power(B-d, -nl)
 
-@_jit_nc(-7)
+@njit
 def _lb0ar(d, beta, arsigma, ar, lb, delta, nr):
     cons1 = np.exp(beta*arsigma)
     phi = 1. + ar*ar
@@ -147,12 +147,12 @@ def _lb0ar(d, beta, arsigma, ar, lb, delta, nr):
 
     return A*np.power(B+d, -nr)
 
-@_jit_nc(-4)
+@njit
 def _lb0Other(d, beta, delta, lb):
 
     return np.exp(beta*d) * np.power(1 + d*d/(delta*delta), lb - 0.5)
 
-@_jit_nc(9)
+@njit
 def _pdf(x, lb, zeta, beta, sigma, mu, al, nl, ar, nr):
     d = _trans(x, mu, 1.)
     out = np.empty_like(x)
@@ -184,7 +184,7 @@ def _pdf(x, lb, zeta, beta, sigma, mu, al, nl, ar, nr):
         for i in _prange(len(x)):
             d_i = d[i]
             if d_i < -alsigma:
-                out[i] = _lb0al(d_i, beta, alsigma, al, lb, delta, nl) 
+                out[i] = _lb0al(d_i, beta, alsigma, al, lb, delta, nl)
             elif d_i > arsigma:
                 out[i] = _lb0ar(d_i, beta, arsigma, ar, lb, delta, nr)
             elif d_i >=-alsigma and d_i <= arsigma:
