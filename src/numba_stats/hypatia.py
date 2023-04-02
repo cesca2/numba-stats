@@ -61,11 +61,11 @@ nr : float
 #def njit(arg, cache=False):
     #return _jit(arg, cache)
 
-@njit
+@njit(cache=True)
 def _low_x_BK(x, nu):
     return gamma(nu)*np.power(2., nu-1)*np.power(x, -nu)
 
-@njit
+@njit(cache=True)
 def _low_x_LnBK(x, nu):
     return np.log(gamma(nu)) + np.log(2)*(nu-1) - np.log(x)*nu
 
@@ -126,7 +126,7 @@ def _zeta0ar(d, arsigma, lb, alpha, beta, delta, nr):
 
     return A * np.power(B+d, -nr)
 
-@njit
+@njit(cache=True)
 def _lb0al(d, beta, alsigma, al, lb, delta, nl):
     cons1 = np.exp(-beta*alsigma)
     phi = 1. + al*al
@@ -137,7 +137,7 @@ def _lb0al(d, beta, alsigma, al, lb, delta, nl):
 
     return A*np.power(B-d, -nl)
 
-@njit
+@njit(cache=True)
 def _lb0ar(d, beta, arsigma, ar, lb, delta, nr):
     cons1 = np.exp(beta*arsigma)
     phi = 1. + ar*ar
@@ -148,7 +148,7 @@ def _lb0ar(d, beta, arsigma, ar, lb, delta, nr):
 
     return A*np.power(B+d, -nr)
 
-@njit
+@njit(cache=True)
 def _lb0Other(d, beta, delta, lb):
 
     return np.exp(beta*d) * np.power(1 + d*d/(delta*delta), lb - 0.5)
