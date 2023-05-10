@@ -12,7 +12,7 @@ scipy.stats.crystalball: Scipy equivalent.
 """
 from ._util import _jit, _trans, _generate_wrappers, _prange
 import numpy as np
-from math import erf as _erf
+from math import erf as _erf, fabs as _fabs, copysign as _sign
 
 _doc_par = """
 x : Array-like
@@ -29,19 +29,19 @@ m : float
 def _log_powerlaw(z, beta, m):
     T = type(beta)
     c = -T(0.5) * beta * beta
-    log_a = m * np.log(m / beta) + c
-    b = m / beta - beta
-    return log_a - m * np.log(b - z)
+    log_a = m * np.log(m / _fabs(beta)) + c
+    b = m / _fabs(beta) - _fabs(beta)
+    return log_a - m * np.log(b - _sign(1.0, beta) * z)
 
 
 @_jit(-3)
 def _powerlaw_integral(z, beta, m):
     T = type(beta)
     exp_beta = np.exp(-T(0.5) * beta * beta)
-    a = (m / beta) ** m * exp_beta
-    b = m / beta - beta
+    a = (m / _fabs(beta)) ** m * exp_beta
+    b = m / _fabs(beta) - _fabs(beta)
     m1 = m - type(m)(1)
-    return a * (b - z) ** -m1 / m1
+    return a * (b - _sign(1.0, beta) * z) ** -m1 / m1
 
 
 @_jit(-2)
@@ -53,7 +53,7 @@ def _normal_integral(a, b):
 
 @_jit(-3)
 def _log_density(z, beta, m):
-    if z < -beta:
+    if (z < -beta and beta > type(beta)(0.0)) or (z > -beta and beta < type(beta)(0.0)):
         return _log_powerlaw(z, beta, m)
     return -0.5 * z * z
 
@@ -62,7 +62,7 @@ def _log_density(z, beta, m):
 def _logpdf(x, beta, m, loc, scale):
     z = _trans(x, loc, scale)
     norm = scale * (
-        _powerlaw_integral(-beta, beta, m) + _normal_integral(-beta, type(beta)(np.inf))
+        _powerlaw_integral(-_fabs(beta), _fabs(beta), m) + _normal_integral(-_fabs(beta), type(beta)(np.inf))
     )
     c = np.log(norm)
     for i in _prange(len(z)):
